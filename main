@@ -1,0 +1,62 @@
+function $component(name, str, data, el) {
+  function hashComponent() {
+    $component[name] = {};
+    $component[name].$template = str;
+    $component[name].$data = data.slice();
+    $component[name].$container = el;
+    $component[name].$previousContainersContent = $component[name].$container.innerHTML;
+  }
+  $component.binding = function(string) {
+    return string.match(/\{\w+\}/g)
+  }
+
+  hashComponent();
+  $component.$restoreContainer = function(name) {
+    $component[name].$container.innerHTML = $component[name].$previousContainersContent
+  };
+
+  if ($component[name].$prepare == 'function') {
+    $component[name].$prepare();
+  }
+  $component.mount = function(componentString) {
+    if ($component[name].$container) {
+
+      $component[name].$container.innerHTML = componentString;
+    } else {
+      return componentString
+    }
+  }
+  $component.compile = function() {
+
+    var componentArray = $component[name].$data;
+
+    var bindingsArray = $component.binding($component[name].$template);
+    var componentString = "";
+    for (var componentCounter in componentArray) {
+      var workingComponent = componentArray[componentCounter];
+      var currentComponentTemplate = $component[name].$template;
+
+
+      for (var bindingCounter in bindingsArray) {
+
+        var workingBinding = bindingsArray[bindingCounter];
+        var workingProperty = workingBinding.slice(1, -1);
+        var replacement = workingComponent[workingProperty];
+        if (typeof workingComponent[workingProperty] == "undefined") {
+          replacement = "";
+        }
+        if (typeof workingComponent[workingProperty] == "function") {
+          replacement = workingComponent[workingProperty]();
+          if (typeof replacement == "undefined") replacement = '';
+        }
+        currentComponentTemplate = currentComponentTemplate.replace(workingBinding, replacement);
+
+      }
+      componentString += currentComponentTemplate;
+
+    }
+    $component.mount(componentString);
+  }
+  $component.compile();
+}
+
