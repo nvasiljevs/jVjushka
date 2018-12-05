@@ -1,10 +1,8 @@
-$component.mount = function(componentString, name) {
-
-  if ($component[name].$container) {
-
-    $component[name].$container.innerHTML = componentString;
-  } else {
-    return componentString
+function randomizer() {
+  var randomNumber = Math.round(Math.random().toFixed(6) * 1000000);
+  if (!randomizer[randomNumber]) {
+    randomizer[randomNumber] = true;
+    return randomNumber
   }
 }
 $component.binding = function(string) {
@@ -15,19 +13,30 @@ $component.compile = function(name) {
   var componentArray = $component[name].$data;
   var bindingsArray = $component.binding($component[name].$template);
   var componentString = "";
-  for (var componentCounter in componentArray) {
-    var workingComponent = componentArray[componentCounter];
-    var currentComponentTemplate = $component[name].$template;
-
-
+  var currentComponentTemplate = $component[name].$template;
+ function processBindings(workingComponent) {
+ 
+   var returnString = currentComponentTemplate;
+   
     for (var bindingCounter in bindingsArray) {
-
+    
       var workingBinding = bindingsArray[bindingCounter];
       var workingProperty = workingBinding.slice(1, -1);
 
-      if (workingProperty[0] == "_") {
-        workingProperty = workingProperty.slice(1);
-      }
+      if (($component[workingProperty]) &&(workingComponent["_"+workingProperty]==undefined) ){
+        var innerComponent = $component[workingProperty];  
+        returnString = returnString.replace(workingBinding, innerComponent.$componentString);}
+        if (workingComponent["_"+workingProperty]!==undefined) {
+        workingComponent[workingProperty] = workingComponent["_"+workingProperty];
+        delete workingComponent["_"+workingProperty];
+        }
+      
+
+      var randomId = randomizer();
+
+      returnString = returnString.replace(workingBinding, "<span id=" + randomId + ">" + workingBinding + "</span>");
+      
+     
       var replacement = workingComponent[workingProperty];
       if (typeof workingComponent[workingProperty] == "undefined") {
         replacement = "";
@@ -36,27 +45,58 @@ $component.compile = function(name) {
         replacement = workingComponent[workingProperty]();
         if (typeof replacement == "undefined") replacement = '';
       }
-
-      currentComponentTemplate = currentComponentTemplate.replace(workingBinding, replacement);
-
+returnString = returnString.replace(workingBinding, replacement);
+      
     }
-    componentString += currentComponentTemplate;
+    return returnString
+  }
+if (componentArray.length ==0) {
+ componentArray[0] = {}; 
+}
+  for (var componentCounter in componentArray) {
+
+    var workingComponent = componentArray[componentCounter];
+    workingComponent.counter_ = +componentCounter + 1;
+    componentString += processBindings(workingComponent); 
+  }
+  $component[name].$componentString = componentString;
+}
+
+function $component(name, str, data) {
+  var el = arguments[3] || "";
+
+  function hashComponent(name, str, data, el) {
+
+    $component[name] = {};
+    $component[name].$name = name;
+    $component[name].$template = str;
+    $component[name].$data = data.slice();
+    $component[name].$container = el;
+    if ($component[name].$container) {
+      $component[name].$previousContainersContent = $component[name].$container.innerHTML;
+      $component[name].$restoreContainer = () => $component[name].$container.innerHTML = $component[name].$previousContainersContent;
+    }
 
   }
-  $component.mount(componentString, name);
-}
-$component.hashComponent = function (name, str, data, el) {
 
-  $component[name] = {};
-  $component[name].$template = str;
-  $component[name].$data = data.slice();
-  $component[name].$container = el;
-  $component[name].$previousContainersContent = $component[name].$container.innerHTML;
-  $component.$restoreContainer = function(name) {
-  $component[name].$container.innerHTML = $component[name].$previousContainersContent
-  };
-}
-function $component(name, str, data, el) {
-  $component.hashComponent (name, str, data, el);
+  function doPreparations() {
+
+    if (typeof $component.$prepare == "function") {
+      $component.$prepare();
+      delete $component.$prepare;
+    }
+
+  }
+
+  function decideIfMount(el, name) {
   $component.compile(name);
+    if (el!=="") {
+      el.innerHTML = $component[name].$componentString;
+    }
+  }
+
+  hashComponent(name, str, data, el);
+  doPreparations();
+  decideIfMount(el, name)
 }
+
